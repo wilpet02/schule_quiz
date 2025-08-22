@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lesetest – Ja/Nein (70 Items)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, Arial, sans-serif;
+      max-width: 800px;
+      margin: 24px auto;
+      padding: 16px;
+      line-height: 1.5;
+    }
+    header { margin-bottom: 12px; }
+    h1 { font-size: 1.6rem; margin: 0 0 6px; }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 18px;
+      margin: 10px 0;
+    }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    label { font-weight: 600; }
+    input, select, button {
+      font-size: 1rem;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      cursor: pointer;
+    }
+    button.primary { font-weight: 700; }
+    #itemText {
+      font-size: 1.4rem;
+      text-align: center;
+      margin: 24px 0;
+      min-height: 3.5em;
+    }
+    #controls { display: flex; gap: 12px; justify-content: center; }
+    #controls button { min-width: 120px; padding: 12px 16px; }
+    #meta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; color: #333; }
+    #meta .pill {
+      border: 1px solid #ccc; border-radius: 999px; padding: 6px 12px; font-size: .95rem;
+    }
+    #feedback { text-align: center; height: 1.5em; margin-top: 6px; }
+    .ok { color: #107010; font-weight: 700; }
+    .bad { color: #a01010; font-weight: 700; }
+    #endScreen h2 { margin-top: 0; }
+    .muted { color: #666; }
+    .small { font-size: .92rem; }
+    .hidden { display: none !important; }
+    .center { text-align: center; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; border: 1px solid #bbb; border-radius: 6px; padding: 0 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📖 Lesetest – Ja/Nein</h1>
+    <div class="muted small">
+      In Anlehnung an Satz-Entscheide: kurze Alltagsaussagen, möglichst schnell und korrekt mit
+      <span class="kbd">J</span> (Ja) / <span class="kbd">N</span> (Nein) beantworten. 70 Items, Standardzeit 3 Minuten.
+    </div>
+  </header>
+
+  <!-- Start -->
+  <section id="startScreen" class="card">
+    <div class="row" style="gap:16px;">
+      <div>
+        <label for="name">Name/ID</label><br>
+        <input id="name" type="text" placeholder="z. B. Max M." />
+      </div>
+      <div>
+        <label for="limit">Zeitlimit</label><br>
+        <select id="limit">
+          <option value="180">3:00</option>
+          <option value="240">4:00</option>
+          <option value="300">5:00</option>
+          <option value="0">Ohne Limit</option>
+        </select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <button id="btnStart" class="primary">Test starten</button>
+    </div>
+    <p class="muted small" style="margin-top:8px;">
+      Bedienung: Maus oder Tasten <span class="kbd">J</span> (Ja) und <span class="kbd">N</span> (Nein).<br>
+      Der Test stoppt automatisch bei Zeitablauf oder nach 70 Items.
+    </p>
+  </section>
+
+  <!-- Test -->
+  <section id="testScreen" class="card hidden" aria-live="polite">
+    <div id="meta">
+      <div class="pill">Item: <span id="counter">1</span> / 70</div>
+      <div class="pill">Richtig: <span id="correct">0</span></div>
+      <div class="pill">⏱️ <span id="time">–:–</span></div>
+    </div>
+    <div id="itemText" role="heading" aria-level="2"></div>
+    <div id="controls">
+      <button id="btnNo" aria-label="Nein (Taste N)">Nein (N)</button>
+      <button id="btnYes" class="primary" aria-label="Ja (Taste J)">Ja (J)</button>
+    </div>
+    <div id="feedback" class="small muted" aria-live="polite"></div>
+  </section>
+
+  <!-- Ende -->
+  <section id="endScreen" class="card hidden">
+    <h2>Ergebnis</h2>
+    <p class="center">
+      <strong id="scoreLine"></strong><br>
+      <span id="speedLine" class="muted"></span>
+    </p>
+    <div class="row center" style="justify-content:center;">
+      <button id="btnDownload">CSV exportieren</button>
+      <button id="btnRestart">Neu starten</button>
+    </div>
+    <details style="margin-top:12px;">
+      <summary>Details (Reaktionszeiten & Antworten)</summary>
+      <div id="detailList" class="small"></div>
+    </details>
+  </section>
+
+  <script>
+    // --------------------------
+    // 1) Item-Erzeugung (70 Stück)
+    //    Vielfältige, kindgerechte Ja/Nein-Aussagen, gemischt wahr/falsch.
+    //    NUR selbst erstellte Inhalte, KEINE Original-Items eines normierten Tests.
+    // --------------------------
+
+    function makeBaseItems() {
+      const truths = [
+        "Ein Apfel ist eine Frucht.",
+        "Eine Katze ist ein Tier.",
+        "Der Himmel ist blau.",
+        "Fische können schwimmen.",
+        "Der Winter ist kalt.",
+        "Bienen machen Honig.",
+        "Ein Dreieck hat drei Ecken.",
+        "Milch kommt von Kühen.",
+        "Die Sonne scheint am Tag.",
+        "Eine Uhr zeigt die Zeit.",
+        "Zucker schmeckt süß.",
+        "Ein Stuhl hat meist vier Beine.",
+        "Regen macht die Straße nass.",
+        "Papier kann man falten.",
+        "Ein Auto fährt auf der Straße.",
+        "Brot kann man essen.",
+        "Wasser löscht den Durst.",
+        "Der Montag kommt nach dem Sonntag.",
+        "Ein Zug fährt auf Schienen.",
+        "Ein Ball kann springen.",
+        "Eine Spinne hat acht Beine.",
+        "Der März ist ein Frühlingsmonat.",
+        "Eine Ente kann schwimmen.",
+        "Feuer ist heiß.",
+        "Der Schneemann schmilzt in der Sonne.",
+        "Bananen sind gelb.",
+        "Der Körper braucht Luft zum Atmen.",
+        "Der Fuß steckt im Schuh.",
+        "Eine Blume wächst aus der Erde.",
+        "Die Nase sitzt im Gesicht.",
+        "Salz schmeckt salzig.",
+        "Ein Blatt Papier ist dünn.",
+        "Hunde bellen.",
+        "Der Abend kommt nach dem Nachmittag.",
+        "Der September gehört zum Herbst."
+      ];
+
+      const falses = [
+        "Der Himmel ist grün.",
+        "Fische können fliegen wie Vögel.",
+        "Ein Dreieck hat vier Ecken.",
+        "Milch wächst auf Bäumen.",
+        "Die Sonne scheint in der Nacht.",
+        "Zucker schmeckt bitter.",
+        "Ein Stuhl ist zum Essen da.",
+        "Regen macht die Straße trocken.",
+        "Autos schwimmen im See.",
+        "Brot ist eine Farbe.",
+        "Wasser ist fest wie Stein.",
+        "Der Montag kommt nach dem Dienstag.",
+        "Züge fahren ohne Schienen in der Luft.",
+        "Ein Ball kann nicht rollen.",
+        "Eine Spinne hat zwei Beine.",
+        "Der März ist ein Wintermonat.",
+        "Enten leben nur in der Wüste.",
+        "Feuer ist eiskalt.",
+        "Ein Schneemann schmilzt nicht in der Sonne.",
+        "Bananen sind blau gestreift.",
+        "Der Körper atmet ohne Luft.",
+        "Der Schuh steckt im Fuß.",
+        "Blumen wachsen aus Metall.",
+        "Die Nase sitzt am Knie.",
+        "Salz schmeckt süß.",
+        "Papier ist härter als Stein.",
+        "Hunde miauen.",
+        "Der Morgen kommt nach der Nacht nicht.",
+        "Der September ist ein Sommermonat.",
+        "Ein Apfel ist ein Auto.",
+        "Kühe trinken Benzin.",
+        "Züge sind runde Bälle.",
+        "Schnee ist heiß.",
+        "Die Uhr misst das Gewicht.",
+        "Bienen backen Brot."
+      ];
+
+      // Leicht variierte, generierte Aussagen für mehr Vielfalt:
+      const colorsTrue = [
+        "Erdbeeren sind rot.", "Gras ist grün.", "Kohle ist schwarz.",
+        "Zitronen sind gelb.", "Wolken sind oft weiß.", "Holz ist braun."
+      ];
+      const colorsFalse = [
+        "Gras ist lila.", "Kohle ist pink.", "Zitronen sind blau.",
+        "Wolken sind orange kariert.", "Holz ist silbern von Natur aus.", "Erdbeeren sind grau."
+      ];
+
+      const numberFacts = [
+        {t: "Zehn ist größer als neun.", a: true},
+        {t: "Fünf ist größer als sieben.", a: false},
+        {t: "Zwei plus zwei ist vier.", a: true},
+        {t: "Drei plus eins ist fünf.", a: false},
+        {t: "Null ist keine Zahl.", a: false}, // mathematisch ist 0 eine Zahl
+        {t: "Hundert ist mehr als neunzig.", a: true}
+      ];
+
+      const base = [];
+      truths.forEach(s => base.push({ text: s, answer: true }));
+      falses.forEach(s => base.push({ text: s, answer: false }));
+      colorsTrue.forEach(s => base.push({ text: s, answer: true }));
+      colorsFalse.forEach(s => base.push({ text: s, answer: false }));
+      numberFacts.forEach(o => base.push({ text: o.t, answer: o.a }));
+
+      // Wenn mehr als 70, später gekürzt. Wenn weniger, füllen wir auf:
+      // Wir erzeugen zusätzliche einfache Weltwissen-Sätze:
+      const fillers = [
+        ["Vögel haben Federn.", true],
+        ["Steine sind weich wie Watte.", false],
+        ["Eine Woche hat sieben Tage.", true],
+        ["Der Donnerstag kommt vor dem Freitag.", true],
+        ["Ein Jahr hat zwölf Monate.", true],
+        ["Eis schmilzt, wenn es warm ist.", true],
+        ["Fische leben in der Wüste.", false],
+        ["Der Löwe ist ein Raubtier.", true],
+        ["Der Mond scheint in der Nacht.", true],
+        ["Tomaten wachsen unter Wasser.", false],
+        ["Eine Gabel hat Zinken.", true],
+        ["Ein Kissen ist zum Trinken da.", false],
+        ["Der Regenbogen hat viele Farben.", true],
+        ["Der Ozean ist eine große Wasserfläche.", true],
+        ["Sand ist flüssig.", false],
+        ["Eine Kerze brennt mit einer Flamme.", true],
+        ["Ein Flugzeug fährt auf Schienen.", false],
+        ["Schmetterlinge sind Insekten.", true],
+        ["Ein Hut ist Schuhwerk.", false],
+        ["Der Ofen macht Wärme.", true],
+      ];
+      fillers.forEach(([t, a]) => base.push({ text: t, answer: a }));
+
+      return base;
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function select70() {
+      const items = makeBaseItems();
+      shuffle(items);
+      // Stelle sicher, dass exakt 70 Items genommen werden:
+      return items.slice(0, 70);
+    }
+
+    // --------------------------
+    // 2) Test-Logik
+    // --------------------------
+    const startScreen = document.getElementById("startScreen");
+    const testScreen  = document.getElementById("testScreen");
+    const endScreen   = document.getElementById("endScreen");
+
+    const nameInput = document.getElementById("name");
+    const limitSel  = document.getElementById("limit");
+    const btnStart  = document.getElementById("btnStart");
+
+    const itemText  = document.getElementById("itemText");
+    const counterEl = document.getElementById("counter");
+    const correctEl = document.getElementById("correct");
+    const timeEl    = document.getElementById("time");
+    const feedback  = document.getElementById("feedback");
+    const btnYes    = document.getElementById("btnYes");
+    const btnNo     = document.getElementById("btnNo");
+
+    const scoreLine = document.getElementById("scoreLine");
+    const speedLine = document.getElementById("speedLine");
+    const btnDownload = document.getElementById("btnDownload");
+    const btnRestart  = document.getElementById("btnRestart");
+    const detailList  = document.getElementById("detailList");
+
+    let ITEMS = [];
+    let idx = 0;
+    let correct = 0;
+    let startedAt = 0;
+    let lastShownAt = 0;
+    let timer = null;
+    let remaining = 0;
+    let log = []; // {i, text, correctAnswer, response, isCorrect, rtMs}
+
+    function fmtTime(sec) {
+      if (sec < 0) sec = 0;
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    function tick() {
+      remaining -= 1;
+      timeEl.textContent = fmtTime(remaining);
+      if (remaining <= 0) {
+        endTest(true);
+      }
+    }
+
+    function showItem() {
+      if (idx >= ITEMS.length) { endTest(false); return; }
+      const it = ITEMS[idx];
+      counterEl.textContent = (idx + 1).toString();
+      itemText.textContent = it.text;
+      feedback.textContent = "";
+      lastShownAt = performance.now();
+    }
+
+    function respond(choiceBool) {
+      if (idx >= ITEMS.length) return;
+      const it = ITEMS[idx];
+      const rtMs = Math.max(0, performance.now() - lastShownAt);
+      const isCorrect = (choiceBool === it.answer);
+      if (isCorrect) {
+        correct++;
+        correctEl.textContent = correct.toString();
+      }
+
+      // kurzes Feedback (optional)
+      feedback.textContent = isCorrect ? "✓ Richtig" : "✗ Falsch";
+      feedback.className = isCorrect ? "ok" : "bad";
+
+      log.push({
+        i: idx + 1,
+        text: it.text,
+        correctAnswer: it.answer ? "Ja" : "Nein",
+        response: choiceBool ? "Ja" : "Nein",
+        isCorrect,
+        rtMs: Math.round(rtMs)
+      });
+
+      idx++;
+      // Mini-Verzögerung für Feedback
+      setTimeout(showItem, 120);
+    }
+
+    function startTest() {
+      ITEMS = select70();
+      idx = 0; correct = 0; log = [];
+      startedAt = performance.now();
+      lastShownAt = startedAt;
+
+      // Timer
+      const limit = parseInt(limitSel.value, 10);
+      if (limit > 0) {
+        remaining = limit;
+        timeEl.textContent = fmtTime(remaining);
+        timer = setInterval(tick, 1000);
+      } else {
+        timeEl.textContent = "∞";
+      }
+
+      startScreen.classList.add("hidden");
+      endScreen.classList.add("hidden");
+      testScreen.classList.remove("hidden");
+      correctEl.textContent = "0";
+      showItem();
+
+      // Tastatursteuerung
+      window.addEventListener("keydown", keyHandler);
+      btnYes.disabled = false; btnNo.disabled = false;
+    }
+
+    function keyHandler(e) {
+      const k = e.key.toLowerCase();
+      if (k === "j") { respond(true); }
+      if (k === "n") { respond(false); }
+    }
+
+    function endTest(timedOut) {
+      if (timer) { clearInterval(timer); timer = null; }
+      window.removeEventListener("keydown", keyHandler);
+      btnYes.disabled = true; btnNo.disabled = true;
+      testScreen.classList.add("hidden");
+      endScreen.classList.remove("hidden");
+
+      const finishedAt = performance.now();
+      const totalMs = finishedAt - startedAt;
+      const done = log.length;
+      const acc = done ? Math.round((correct / done) * 100) : 0;
+      const meanRt = done ? Math.round(log.reduce((a, b) => a + b.rtMs, 0) / done) : 0;
+
+      scoreLine.textContent =
+        `${document.getElementById("name").value || "Ohne Name"} – Richtig: ${correct} von ${done} (${acc} %)` +
+        (timedOut ? " – Zeit abgelaufen." : "");
+
+      speedLine.textContent =
+        `Bearbeitungszeit: ${(totalMs/1000).toFixed(1)} s · Ø Reaktionszeit/Item: ${meanRt} ms`;
+
+      // Detailtabelle
+      const rows = log.map(r =>
+        `<tr><td>${r.i}</td><td>${r.text}</td><td>${r.correctAnswer}</td><td>${r.response}</td><td>${r.isCorrect ? "✓" : "✗"}</td><td>${r.rtMs}</td></tr>`
+      ).join("");
+      detailList.innerHTML = `
+        <div style="overflow:auto;">
+          <table border="1" cellpadding="6" cellspacing="0">
+            <thead><tr>
+              <th>#</th><th>Aussage</th><th>Lösung</th><th>Antwort</th><th>Korrekt</th><th>RT (ms)</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function downloadCSV() {
+      const name = (nameInput.value || "ohne_name").replaceAll(/[^a-z0-9_\-]/gi, "_");
+      const header = ["Name","Item","Text","Lösung","Antwort","Korrekt","RT_ms"].join(",");
+      const lines = log.map(r =>
+        [name, r.i, `"${r.text.replaceAll('"','""')}"`, r.correctAnswer, r.response, r.isCorrect ? 1 : 0, r.rtMs].join(",")
+      );
+      const csv = [header, ...lines].join("\n");
+      const blob = new Blob([csv], {type: "text/csv;charset=utf-8"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+      a.download = `lesetest_${name}_${stamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // Bindings
+    btnStart.addEventListener("click", startTest);
+    btnYes.addEventListener("click", () => respond(true));
+    btnNo.addEventListener("click",  () => respond(false));
+    btnDownload.addEventListener("click", downloadCSV);
+    btnRestart.addEventListener("click", () => {
+      endScreen.classList.add("hidden");
+      startScreen.classList.remove("hidden");
+    });
+  </script>
+</body>
+</html>
